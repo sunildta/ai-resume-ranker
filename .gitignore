@@ -35,6 +35,8 @@ Thumbs.db
 
 # Project specific
 firebase_key.json
+firebaseConfig.js
+firebase_config.py
 
 # Editor directories and files
 *.suo
