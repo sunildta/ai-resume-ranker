@@ -1,0 +1,8 @@
+python-multipart
+pdfplumber
+scikit-learn
+sentence-transformers
+pydantic
+aiofiles
+numpy
+pandas
