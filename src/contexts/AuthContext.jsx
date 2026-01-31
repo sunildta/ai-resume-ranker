@@ -1,56 +1,58 @@
-import  { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth'; // Renamed signOut to firebaseSignOut
-import { auth } from '../firebase/firebaseConfig'; // Your Firebase auth instance
+import { createContext, useContext, useEffect, useState } from "react";
+import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
+import { auth } from "../firebase/firebaseConfig";
 
-// 1. Create the Context
+
 const AuthContext = createContext();
 
-// 2. Create a custom hook to use the AuthContext easily
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
-
-// 3. Create the Provider component
-export const AuthProvider = ({ children }) => {
+export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(true); // To manage initial auth state loading
-
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // This listener will be called whenever the user's sign-in state changes
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-      setLoading(false); // Auth state has been determined
-    });
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
 
-    // Cleanup subscription on unmount
-    return () => unsubscribe();
-  }, []); // Empty dependency array means this runs once on mount
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (user) => {
+        setCurrentUser(user);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Auth error:", error);
+        setLoading(false);
+      }
+    );
 
-  // Function to sign out the user
+    return unsubscribe;
+  }, []);
+
+  // Sign out function
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
-      // The onAuthStateChanged listener will handle updating currentUser to null
+      setCurrentUser(null);
     } catch (error) {
       console.error("Error signing out:", error);
-      throw error; // Re-throw to allow component to catch and display error
+      throw error;
     }
   };
 
-  // The value that will be provided to consumers of this context
   const value = {
     currentUser,
+    user: currentUser, // Alias for compatibility
     loading,
-    signOut, // Expose the signOut function
-    // You could add signIn, signUp functions here too, or keep them in specific pages
+    signOut
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {/* Only render children when the auth state has been determined */}
       {!loading && children}
     </AuthContext.Provider>
   );
-};
+}
 
+export const useAuth = () => useContext(AuthContext);

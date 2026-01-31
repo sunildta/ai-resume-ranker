@@ -52,13 +52,14 @@ const JobPostings = () => {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("title", title);
-    formData.append("description", description);
+    const jobData = {
+      title: title,
+      description: description
+    };
 
     try {
       setLoading(true);
-      const res = await API.post("/post-job/", formData);
+      const res = await API.post("/post-job/", jobData);
       const jobId = res.data.job_id;
       navigate(`/dashboard/upload-resume/${jobId}`);
     } catch (err) {
@@ -97,7 +98,7 @@ const JobPostings = () => {
             placeholder="Enter Job Title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full border border-violet-400 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-violet-600"
+            className="w-full border border-violet-400 rounded-lg p-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-600"
           />
         </div>
 
@@ -115,8 +116,8 @@ const JobPostings = () => {
             placeholder="Enter Job Description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            maxLength={500} 
-            className="w-full border border-violet-400 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-violet-600 resize-y"
+            maxLength={500}
+            className="w-full border border-violet-400 rounded-lg p-3 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-violet-600 resize-y"
           />
           <p className="text-sm text-gray-500 mt-1">
             {description.length} / Min: 150 - Max:500 - characters

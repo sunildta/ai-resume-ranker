@@ -376,39 +376,69 @@ async def get_test_results(job_title: str):
 
         # Fetch shortlisted candidates
         shortlisted_ref = db.collection("jobs").document(job_id).collection("shortlisted").stream()
-        shortlisted = {c.id: c.to_dict() for c in shortlisted_ref}
-
         # Fetch all test results for this job (from all tests created for this job)
         all_test_results = {}
         all_test_results_by_email = {}  # Also index by email for better matching
+        all_candidates_from_tests = {}  # Track all candidates who have tests
+        
         tests_ref = db.collection("tests").where(filter=FieldFilter("job_id", "==", job_id)).stream()
         
         for test_doc in tests_ref:
             test_id = test_doc.id
+            test_data = test_doc.to_dict()
+            
+            # Store candidate info from test document
+            candidate_id = test_data.get("candidate_id")
+            candidate_email = test_data.get("candidate_email")
+            
+            if candidate_id:
+                # Track candidate from test document
+                if candidate_id not in all_candidates_from_tests:
+                    all_candidates_from_tests[candidate_id] = {
+                        "candidate_id": candidate_id,
+                        "candidate_email": candidate_email,
+                        "candidate_name": test_data.get("candidate_name", "Unknown"),
+                        "test_created": True
+                    }
+            
+            # Check for submitted results
             results_ref = db.collection("tests").document(test_id).collection("results").stream()
             for result_doc in results_ref:
                 result_data = result_doc.to_dict()
-                candidate_id = result_data.get("candidate_id")
-                candidate_email = result_data.get("candidate_email")
+                test_candidate_id = result_data.get("candidate_id")
+                test_candidate_email = result_data.get("candidate_email")
                 
-                if candidate_id:
+                if test_candidate_id:
                     # Keep the best result for each candidate if multiple tests exist
-                    if candidate_id not in all_test_results or result_data.get("score", 0) > all_test_results[candidate_id].get("score", 0):
-                        all_test_results[candidate_id] = result_data
+                    if test_candidate_id not in all_test_results or result_data.get("score", 0) > all_test_results[test_candidate_id].get("score", 0):
+                        all_test_results[test_candidate_id] = result_data
                 
                 # Also index by email for matching
-                if candidate_email:
-                    if candidate_email not in all_test_results_by_email or result_data.get("score", 0) > all_test_results_by_email[candidate_email].get("score", 0):
-                        all_test_results_by_email[candidate_email] = result_data
+                if test_candidate_email:
+                    if test_candidate_email not in all_test_results_by_email or result_data.get("score", 0) > all_test_results_by_email[test_candidate_email].get("score", 0):
+                        all_test_results_by_email[test_candidate_email] = result_data
+
+        # Also fetch shortlisted candidates to get additional info if available
+        shortlisted_ref = db.collection("jobs").document(job_id).collection("shortlisted").stream()
+        shortlisted = {c.id: c.to_dict() for c in shortlisted_ref}
 
         candidates = []
 
-        for doc_id, cand in shortlisted.items():
-            candidate_id = cand.get("candidate_id", doc_id.split(".")[0])  # Use filename without extension as fallback
-            candidate_email = cand.get("candidate_email", "")
-            extracted_text = cand.get("extracted_text", "")
+        # Build candidates from tests (primary source)
+        for candidate_id, candidate_info in all_candidates_from_tests.items():
+            candidate_email = candidate_info.get("candidate_email", "")
+            candidate_name = candidate_info.get("candidate_name", "Unknown")
             
-            # Try to find test result using multiple matching strategies
+            # Try to get additional info from shortlisted collection
+            shortlisted_data = None
+            for doc_id, cand in shortlisted.items():
+                if (cand.get("candidate_id") == candidate_id or 
+                    cand.get("filename") == candidate_id or
+                    cand.get("candidate_email") == candidate_email):
+                    shortlisted_data = cand
+                    break
+            
+            # Try to find test result
             result = None
             
             # 1. Try matching by candidate_id
@@ -418,53 +448,15 @@ async def get_test_results(job_title: str):
             if not result and candidate_email:
                 result = all_test_results_by_email.get(candidate_email)
             
-            # 3. If still no result, try matching by email as candidate_id (common case)
-            if not result and candidate_email:
-                result = all_test_results.get(candidate_email)
-            
-            # 4. Extract email from resume text and try matching (NEW)
-            if not result and extracted_text:
-                import re
-                email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-                emails_in_text = re.findall(email_pattern, extracted_text)
-                
-                for email in emails_in_text:
-                    if email in all_test_results:
-                        result = all_test_results[email]
-                        candidate_email = email  # Update the email for display
-                        break
-                    if email in all_test_results_by_email:
-                        result = all_test_results_by_email[email]
-                        candidate_email = email  # Update the email for display
-                        break
-            
-            # 5. Try matching by name if available
-            if not result:
-                candidate_name = cand.get("candidate_name", "")
-                for test_result in all_test_results.values():
-                    if test_result.get("candidate_name", "").lower() == candidate_name.lower():
-                        result = test_result
-                        break
-            
-            # Use email from test result if shortlisted email is empty
-            display_email = candidate_email
-            if result and not display_email:
-                display_email = result.get("candidate_email", "")
-            
-            # Use name from test result if shortlisted name is not available
-            display_name = cand.get("candidate_name", "Unknown")
-            if result and display_name == "Unknown":
-                display_name = result.get("candidate_name", "Unknown")
-            
             base_candidate_data = {
                 "candidate_id": candidate_id,
-                "candidate_name": display_name,
-                "candidate_email": display_email,
-                "filename": cand.get("filename", ""),
-                "match_score": cand.get("match_score", 0),
-                "shortlist_rank": cand.get("rank", 0),  # Original shortlist rank
-                "experience_years": cand.get("experience_years", 0),
-                "education_level": cand.get("education_level", "Not Specified"),
+                "candidate_name": candidate_name,
+                "candidate_email": candidate_email,
+                "filename": shortlisted_data.get("filename", candidate_id) if shortlisted_data else candidate_id,
+                "match_score": shortlisted_data.get("match_score", 0) if shortlisted_data else 0,
+                "shortlist_rank": shortlisted_data.get("rank", 0) if shortlisted_data else 0,
+                "experience_years": shortlisted_data.get("experience_years", 0) if shortlisted_data else 0,
+                "education_level": shortlisted_data.get("education_level", "Not Specified") if shortlisted_data else "Not Specified",
             }
             
             if result:
@@ -474,7 +466,7 @@ async def get_test_results(job_title: str):
                     "test_score": result.get("score", 0),
                     "total_questions": result.get("total_questions", 0),
                     "percentage": result.get("percentage", 0),
-                    "test_rank": result.get("rank", None),  # Test ranking
+                    "test_rank": result.get("rank", None),
                     "submitted_at": result.get("submitted_at"),
                 })
             else:

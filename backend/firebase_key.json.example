@@ -1,0 +1,26 @@
+# Firebase Service Account Key Template
+# 
+# IMPORTANT: This is a template file. DO NOT commit actual credentials.
+# 
+# To set up Firebase:
+# 1. Go to Firebase Console: https://console.firebase.google.com/
+# 2. Select your project
+# 3. Go to Project Settings > Service Accounts
+# 4. Click "Generate New Private Key"
+# 5. Download the JSON file
+# 6. Rename it to "firebase_key.json" and place in backend/ folder
+# 7. Make sure firebase_key.json is in .gitignore (it is!)
+#
+# The file should look like this structure:
+{
+  "type": "service_account",
+  "project_id": "your-project-id",
+  "private_key_id": "your-private-key-id",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----END PRIVATE KEY-----\n",
+  "client_email": "your-service-account@your-project.iam.gserviceaccount.com",
+  "client_id": "your-client-id",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "your-cert-url"
+}

@@ -1,8 +1,22 @@
 from sentence_transformers import SentenceTransformer, util
 
-model = SentenceTransformer('all-MiniLM-L6-v2')
+# Global model variable - will be initialized on server startup
+model = None
+
+def initialize_model():
+    """Initialize the Sentence Transformer model. Call this on server startup."""
+    global model
+    if model is None:
+        print("🔄 Loading Sentence Transformer model...")
+        model = SentenceTransformer('all-MiniLM-L6-v2')
+        print("✅ Model loaded successfully!")
+    return model
 
 def rank_resumes(job_description: str, resumes: list):
+    global model
+    if model is None:
+        raise RuntimeError("Model not initialized! Call initialize_model() first.")
+    
     job_embedding = model.encode(job_description, convert_to_tensor=True)
     ranked_resumes = []
 

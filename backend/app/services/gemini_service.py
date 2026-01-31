@@ -35,32 +35,40 @@ def generate_mcqs(job_title: str, skills: list, level: str, candidate_name: str 
         skills_instruction = f"The questions must be highly relevant to these skills: {', '.join(skills)}."
 
     prompt = f"""
-    You are an expert at creating multiple-choice questions for job interviews.
-    Your task is to create a set of aptitude test questions for a candidate.
+    You are an expert technical interviewer creating aptitude test questions for hiring.
+    
+    **Job Role**: {job_title}
+    **Required Skills**: {', '.join(skills)}
+    **Difficulty Level**: {level}
+    **Candidate**: {candidate_name or "Anonymous"}
+    **Unique Seed**: {unique_seed}
 
-    Here are the details:
-    - Candidate: {candidate_name or "Anonymous"}
-    - Job Title: {job_title}
-    - Key Skills: {', '.join(skills)}
-    - Difficulty Level: {level}
-    - Unique Seed: {unique_seed}
+    **IMPORTANT INSTRUCTIONS**:
+    1. Generate EXACTLY 5 multiple-choice questions
+    2. ALL questions MUST be directly relevant to the "{job_title}" role
+    3. Focus heavily on the required skills: {', '.join(skills)}
+    4. Questions should test:
+       - Technical knowledge specific to {job_title}
+       - Problem-solving in the context of {', '.join(skills[:3]) if len(skills) >= 3 else ', '.join(skills)}
+       - Practical application of skills for this role
+    5. Each question must have EXACTLY 4 options (A, B, C, D)
+    6. Make questions unique for each candidate
+    7. Difficulty: {level}
 
-    {skills_instruction}
-
-    Generate exactly 5 unique multiple-choice questions.
-    Each must have exactly 4 options (A, B, C, D).
-    Questions should be unique for each candidate, even if job/skills are the same.
-
-    Output JSON only:
+    **Example Question Types**:
+    - "In {job_title}, when working with {skills[0] if skills else 'the technology stack'}, which approach is best for..."
+    - "A {job_title} needs to {f'implement {skills[0]}' if skills else 'solve a problem'}. What is the most efficient method?"
+    
+    **Output ONLY valid JSON** in this exact format:
     {{
       "questions": [
         {{
-          "question": "text",
+          "question": "Specific question about {job_title} and {skills[0] if skills else 'required skills'}",
           "options": [
-            "A) ...",
-            "B) ...",
-            "C) ...",
-            "D) ..."
+            "A) First option",
+            "B) Second option", 
+            "C) Third option",
+            "D) Fourth option"
           ],
           "correct_answer": "B"
         }}

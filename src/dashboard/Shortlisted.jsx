@@ -4,6 +4,7 @@ import axios from "axios";
 import API, { filterShortlistedResumes } from "../api/axios";
 import { useShortlist } from "../contexts/ShortlistContext";
 import FilterPanel from "../components/FilterPanel";
+import { sanitizeFilename } from "../utils/fileUtils";
 
 function Shortlisted() {
   const { jobId } = useParams();
@@ -16,12 +17,15 @@ function Shortlisted() {
   const [filterStats, setFilterStats] = useState(null);
 
   // ✅ Fix: Correctly destructure all values from the context
-  const { 
-    selectedCandidates, 
-    setSelectedCandidates, 
+  const {
+    selectedCandidates,
+    setSelectedCandidates,
     setCurrentJobId,
     setCurrentFilters
   } = useShortlist();
+
+  // Debug logging
+  console.log('🔍 Shortlisted Component - Job ID:', jobId);
 
   // Set current jobId in context when component loads
   useEffect(() => {
@@ -31,10 +35,21 @@ function Shortlisted() {
   }, [jobId, setCurrentJobId]);
 
   useEffect(() => {
+    // Don't fetch if no jobId
+    if (!jobId) {
+      console.error('❌ No job ID provided!');
+      setError("No job ID provided. Please select a job first.");
+      setLoading(false);
+      return;
+    }
+
     const fetchShortlisted = async () => {
       try {
+        console.log('📡 Fetching shortlisted resumes for job:', jobId);
         const res = await API.get(`/shortlist/${jobId}`);
+        console.log('✅ API Response:', res.data);
         const resumeData = res.data.shortlisted || [];
+        console.log('📊 Resume count:', resumeData.length);
         setResumes(resumeData);
         setOriginalResumes(resumeData); // Store original data for clearing filters
         // Initialize filters in context with default values
@@ -50,7 +65,7 @@ function Shortlisted() {
           sortBy: "score",
         });
       } catch (err) {
-        console.error("Error fetching shortlisted resumes:", err);
+        console.error("❌ Error fetching shortlisted resumes:", err);
         setError("Failed to load shortlisted resumes. Please try again.");
       } finally {
         setLoading(false);
@@ -74,7 +89,7 @@ function Shortlisted() {
         education_level: filters.educationLevel,
         sort_by: filters.sortBy
       };
-      
+
       const result = await filterShortlistedResumes(jobId, formattedFilters);
       setResumes(result.shortlisted);
       setFilterStats({
@@ -113,11 +128,11 @@ function Shortlisted() {
       setError("Please select at least one candidate to proceed.");
       return;
     }
-    
+
     try {
       setFilterLoading(true);
       setError("");
-      
+
       // Save selected candidates as final shortlisted
       const response = await axios.post(
         `http://localhost:8000/shortlist/${jobId}/select`,
@@ -128,12 +143,15 @@ function Shortlisted() {
           }
         }
       );
-      
+
       console.log('Selected candidates saved:', response.data);
-      
+
+      // ✅ Save selected candidates to context for Test Management page
+      setSelectedCandidates(selectedCandidates);
+
       // Navigate to test management page
       navigate(`/dashboard/test-management/${jobId}`);
-      
+
     } catch (err) {
       console.error("Error saving selected candidates:", err);
       setError("Failed to save selected candidates. Please try again.");
@@ -168,7 +186,7 @@ function Shortlisted() {
         </h2>
 
         {/* Filter Panel */}
-        <FilterPanel 
+        <FilterPanel
           onApplyFilters={handleApplyFilters}
           onClearFilters={handleClearFilters}
           isLoading={filterLoading}
@@ -267,7 +285,7 @@ function Shortlisted() {
                       </div>
                     </div>
                     <a
-                      href={`http://127.0.0.1:8000/view-resume/${resume.filename}`}
+                      href={`http://127.0.0.1:8000/view-resume/${sanitizeFilename(resume.filename)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="bg-violet-600 text-white px-4 py-2 rounded-lg hover:bg-violet-700 transition"
@@ -282,11 +300,10 @@ function Shortlisted() {
                 <button
                   onClick={handleNextRound}
                   disabled={selectedCandidates.length === 0 || filterLoading}
-                  className={`px-8 py-4 rounded-full font-semibold transition duration-200 shadow-lg ${
-                    selectedCandidates.length === 0 || filterLoading
-                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800 hover:shadow-xl'
-                  }`}
+                  className={`px-8 py-4 rounded-full font-semibold transition duration-200 shadow-lg ${selectedCandidates.length === 0 || filterLoading
+                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800 hover:shadow-xl'
+                    }`}
                 >
                   {filterLoading ? (
                     <div className="flex items-center">

@@ -1,16 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useShortlist } from "../contexts/ShortlistContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 
 function TestManagement() {
-  const { selectedCandidates, currentJobId, currentFilters } = useShortlist();
+  const { jobId: urlJobId } = useParams();
+  const { selectedCandidates, currentJobId, currentFilters, setCurrentJobId } = useShortlist();
   const navigate = useNavigate();
 
   const [difficulty, setDifficulty] = useState("medium");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
-  const [generatedTests, setGeneratedTests] = useState({}); // { filename: { testId, emailStatus } }
+  const [generatedTests, setGeneratedTests] = useState({});
+
+  // Use URL param or context jobId
+  const activeJobId = urlJobId || currentJobId;
+
+  // Set job ID in context if from URL
+  useEffect(() => {
+    if (urlJobId && urlJobId !== currentJobId) {
+      setCurrentJobId(urlJobId);
+    }
+  }, [urlJobId, currentJobId, setCurrentJobId]); // { filename: { testId, emailStatus } }
 
   const handleViewResult = () => {
     navigate(`/dashboard/test-results`);
@@ -22,52 +33,94 @@ function TestManagement() {
     setError(null);
     setGeneratedTests({}); // Clear previous
 
-    const skillsFromFilter = (currentFilters && currentFilters.requiredSkills)
-      ? currentFilters.requiredSkills.split(',').map(s => s.trim()).filter(s => s)
-      : [];
+    try {
+      // 🔥 Fetch actual job data from backend
+      const jobResponse = await axios.get(`http://localhost:8000/debug/jobs`);
+      const jobs = jobResponse.data.jobs;
+      const currentJob = jobs.find(j => j.id === activeJobId);
 
-    const generationPromises = selectedCandidates.map(async (candidate) => {
-      try {
-        const apiUrl = "http://localhost:8000/api/test/create";
-
-        // NOTE: Make sure candidate object has name/email if available
-        const payload = {
-          job_id: currentJobId,
-          candidate_id: candidate.filename || candidate, // adapt based on your context
-          difficulty: difficulty,
-          skills: skillsFromFilter,
-          candidate_name: candidate.name || candidate,   // replace with actual name if available
-          candidate_email: candidate.email || "test@example.com", // replace with actual email
-          job_title: currentFilters.jobTitle || "Job Title"
-        };
-
-        const response = await axios.post(apiUrl, payload);
-
-        return {
-          filename: candidate.filename || candidate,
-          testId: response.data.test_id,
-          emailStatus: response.data.email_status
-        };
-      } catch (err) {
-        console.error(`Error generating test for ${candidate}:`, err);
-        return { filename: candidate.filename || candidate, error: "Failed to generate" };
+      if (!currentJob) {
+        setError("Job not found. Please try again.");
+        setIsGenerating(false);
+        return;
       }
-    });
 
-    const results = await Promise.all(generationPromises);
-
-    const newGeneratedTests = results.reduce((acc, result) => {
-      if (result && result.testId) {
-        acc[result.filename] = { testId: result.testId, emailStatus: result.emailStatus };
+      // Extract skills from filter or job description
+      let skillsArray = [];
+      if (currentFilters && currentFilters.requiredSkills) {
+        skillsArray = currentFilters.requiredSkills.split(',').map(s => s.trim()).filter(s => s);
       }
-      return acc;
-    }, {});
 
-    setGeneratedTests(newGeneratedTests);
-    setIsGenerating(false);
+      // If no skills in filter, extract from job's required_skills or use a default set
+      if (skillsArray.length === 0 && currentJob.required_skills) {
+        skillsArray = currentJob.required_skills.split(',').map(s => s.trim()).filter(s => s);
+      }
+
+      // Fallback: extract keywords from job description
+      if (skillsArray.length === 0 && currentJob.description) {
+        const commonSkills = ['JavaScript', 'Python', 'Java', 'React', 'Node.js', 'SQL', 'CSS', 'HTML', 'TypeScript', 'Redux', 'API', 'Git'];
+        skillsArray = commonSkills.filter(skill =>
+          currentJob.description.toLowerCase().includes(skill.toLowerCase())
+        );
+      }
+
+      // Final fallback
+      if (skillsArray.length === 0) {
+        skillsArray = ['Problem Solving', 'Communication', 'Teamwork'];
+      }
+
+      const generationPromises = selectedCandidates.map(async (candidate) => {
+        try {
+          const apiUrl = "http://localhost:8000/api/test/create";
+
+          const payload = {
+            job_id: activeJobId,
+            candidate_id: candidate.filename || candidate,
+            difficulty: difficulty,
+            skills: skillsArray, // ✅ Real skills from job
+            candidate_name: candidate.name || candidate,
+            candidate_email: candidate.email || "test@example.com",
+            job_title: currentJob.title // ✅ Real job title
+          };
+
+          console.log('🎯 Generating test with:', {
+            jobTitle: payload.job_title,
+            skills: payload.skills,
+            difficulty: payload.difficulty
+          });
+
+          const response = await axios.post(apiUrl, payload);
+
+          return {
+            filename: candidate.filename || candidate,
+            testId: response.data.test_id,
+            emailStatus: response.data.email_status
+          };
+        } catch (err) {
+          console.error(`Error generating test for ${candidate}:`, err);
+          return { filename: candidate.filename || candidate, error: "Failed to generate" };
+        }
+      });
+
+      const results = await Promise.all(generationPromises);
+
+      const newGeneratedTests = results.reduce((acc, result) => {
+        if (result && result.testId) {
+          acc[result.filename] = { testId: result.testId, emailStatus: result.emailStatus };
+        }
+        return acc;
+      }, {});
+
+      setGeneratedTests(newGeneratedTests);
+    } catch (err) {
+      console.error("Error in test generation:", err);
+      setError("Failed to generate tests. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
-  if (!currentJobId) {
+  if (!activeJobId) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-gray-50  bg-gradient-to-br from-violet-50 via-purple-50 to-indigo-100 py-12 px-4">
         <div className="bg-white shadow-lg rounded-xl p-8 max-w-md w-full text-center">
@@ -88,7 +141,7 @@ function TestManagement() {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
         <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-          Test Management for Job ID: {currentJobId}
+          Test Management for Job ID: {activeJobId}
         </h2>
 
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
@@ -144,8 +197,8 @@ function TestManagement() {
                       <p className="font-semibold text-gray-800">{candidatefilename}</p>
                       {generatedTests[candidatefilename] ? (
                         <div className="flex items-center gap-2">
-                          <a 
-                            href={`/take-test/${generatedTests[candidatefilename].testId}`} 
+                          <a
+                            href={`/take-test/${generatedTests[candidatefilename].testId}`}
                             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
                             target="_blank"
                             rel="noopener noreferrer"
@@ -164,16 +217,16 @@ function TestManagement() {
                 ))}
               </ul>
               <div className="text-center mt-6">
-                  <button
-                    onClick={handleViewResult}
-                    className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-2xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-green-500/25"
-                  >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                    </svg>
-                    View Test Result
-                  </button>
-                </div>
+                <button
+                  onClick={handleViewResult}
+                  className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-2xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-green-500/25"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                  View Test Result
+                </button>
+              </div>
             </>
           )}
         </div>

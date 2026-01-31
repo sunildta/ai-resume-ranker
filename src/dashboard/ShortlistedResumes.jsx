@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useShortlist } from "../contexts/ShortlistContext";
 import API from "../api/axios";
+import { sanitizeFilename } from "../utils/fileUtils";
 
 const ShortlistedResumes = () => {
-  const [searchParams] = useSearchParams();
+  const { jobId: urlJobId } = useParams();
   const { currentJobId } = useShortlist();
 
   const [jobTitle, setJobTitle] = useState("");
@@ -14,7 +15,9 @@ const ShortlistedResumes = () => {
   const [error, setError] = useState(null);
 
   // Get jobId from URL params or context
-  const jobId = searchParams.get("jobId") || currentJobId;
+  const jobId = urlJobId || currentJobId;
+
+  console.log('🔍 ShortlistedResumes - URL JobId:', urlJobId, 'Context JobId:', currentJobId, 'Final JobId:', jobId);
 
   // ✅ Validation function
   const isValidText = (text) => {
@@ -177,11 +180,10 @@ const ShortlistedResumes = () => {
                     value={jobTitle}
                     onChange={(e) => setJobTitle(e.target.value)}
                     placeholder="Enter job title (e.g., Software Developer, Data Scientist)"
-                    className={`w-full p-4 pl-12 border-2 rounded-2xl focus:ring-2 outline-none transition-all duration-200 ${
-                      error
-                        ? "border-red-400 focus:ring-red-500 bg-red-50"
-                        : "border-violet-200 focus:ring-violet-500 focus:border-violet-400 bg-violet-50/30"
-                    }`}
+                    className={`w-full p-4 pl-12 border-2 rounded-2xl focus:ring-2 outline-none transition-all duration-200 ${error
+                      ? "border-red-400 focus:ring-red-500 bg-red-50"
+                      : "border-violet-200 focus:ring-violet-500 focus:border-violet-400 bg-violet-50/30"
+                      }`}
                   />
                   <svg className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0H8m8 0v2a2 2 0 01-2 2H10a2 2 0 01-2-2V6m8 0H8" />
@@ -320,7 +322,7 @@ const ShortlistedResumes = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
             {candidates.map((candidate, index) => {
               const rankDisplay = candidate.rank || index + 1;
-              
+
               return (
                 <div
                   key={candidate.candidate_id || index}
@@ -331,10 +333,10 @@ const ShortlistedResumes = () => {
                     <div className="absolute -top-3 -right-3 w-14 h-14 rounded-full flex items-center justify-center font-bold text-white shadow-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 border-4 border-white">
                       <span className="text-sm">#{rankDisplay}</span>
                     </div>
-                    
+
                     {/* Gradient Header Bar */}
                     <div className="h-2 bg-gradient-to-r from-violet-400 via-purple-400 to-indigo-400"></div>
-                    
+
                     <div className="p-8">
                       {/* Enhanced Header */}
                       <div className="mb-6">
@@ -358,7 +360,7 @@ const ShortlistedResumes = () => {
                               </div>
                             )}
                           </div>
-                          
+
                           {/* Enhanced Status Badge */}
                           <span className="px-4 py-2 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 border border-emerald-200 shadow-sm">
                             {candidate.status === 'selected_for_test' ? 'Test Ready' : candidate.status || 'Shortlisted'}
@@ -395,9 +397,9 @@ const ShortlistedResumes = () => {
                       {(candidate.preview_text || candidate.extracted_text) && (
                         <div className="mb-4 border-t pt-4">
                           <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
-                            {candidate.preview_text || 
-                             candidate.extracted_text?.substring(0, 200) || 
-                             "No preview available"}
+                            {candidate.preview_text ||
+                              candidate.extracted_text?.substring(0, 200) ||
+                              "No preview available"}
                           </p>
                         </div>
                       )}
@@ -406,7 +408,7 @@ const ShortlistedResumes = () => {
                       <div className="border-t pt-4">
                         {candidate.filename ? (
                           <a
-                            href={`http://localhost:8000/view-resume/${candidate.filename}`}
+                            href={`http://localhost:8000/view-resume/${sanitizeFilename(candidate.filename)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="w-full bg-gradient-to-r from-violet-500 to-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:from-violet-600 hover:to-purple-700 transition-colors flex items-center justify-center"

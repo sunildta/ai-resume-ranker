@@ -59,7 +59,7 @@ const Signup = () => {
       return false;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)){
+    if (!emailRegex.test(formData.email)) {
       setError("Please enter a valid email address");
       return false;
     }
@@ -70,7 +70,7 @@ const Signup = () => {
       return false;
     }
     const passwordRegex =
-    /^(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      /^(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(formData.password)) {
       setError("Password must be at least 8 characters and include uppercase, lowercase, number, and special character");
       return false;
@@ -89,7 +89,7 @@ const Signup = () => {
     }
     return true;
   };
-   // Handle Email SignUP
+  // Handle Email SignUP
   const handleEmailSignUp = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -109,20 +109,21 @@ const Signup = () => {
       return;
     }
 
-    // Navigation will be handled by AuthContext
+    // Signup successful - redirect to dashboard
+    navigate('/dashboard');
   };
-   
+
   // Handle Google SignUp
   const handleGoogleSignUp = async () => {
     setIsProcessing(true);
     setError('');
 
     const result = await signInWithGoogle();
-    
+
     if (!result.success) {
       setError(result.error.message);
     }
-    
+
     setIsProcessing(false);
   };
 
@@ -187,7 +188,7 @@ const Signup = () => {
                 placeholder="Your company name"
               />
             </div>
-            
+
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                 Password
@@ -242,7 +243,7 @@ const Signup = () => {
             {error && (
               <p className="text-red-400 text-sm text-center">{error}</p>
             )}
-            
+
             <button
               type="submit"
               className="w-full bg-gradient-to-r from-blue-700 to-blue-900 text-white py-3 rounded-lg font-semibold hover:from-blue-800 hover:to-blue-950 transition-all duration-300 transform hover:scale-105 flex items-center justify-center"

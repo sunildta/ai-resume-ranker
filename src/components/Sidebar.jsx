@@ -1,8 +1,8 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useShortlist } from '../contexts/ShortlistContext';
 
-import { 
-  ChevronLeftIcon, 
+import {
+  ChevronLeftIcon,
   ChevronRightIcon,
   HomeIcon,
   BriefcaseIcon,
@@ -20,31 +20,31 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
   const menuItems = [
     { path: '/dashboard', basePath: '/dashboard', name: 'Dashboard', icon: HomeIcon, end: true },
     { path: '/dashboard/job-postings', basePath: '/dashboard/job-postings', name: 'Job Postings', icon: BriefcaseIcon },
-    { 
-      path: currentJobId ? `/dashboard/upload-resume/${currentJobId}` : '/dashboard/upload-resume/:jobId', 
+    {
+      path: currentJobId ? `/dashboard/upload-resume/${currentJobId}` : '/dashboard/upload-resume/:jobId',
       basePath: '/dashboard/upload-resume',
-      name: 'Upload-resume', 
-      icon: DocumentTextIcon 
+      name: 'Upload-resume',
+      icon: DocumentTextIcon
     },
-    { 
-      path: currentJobId ? `/dashboard/test-management/${currentJobId}` : '/dashboard/test-management/:jobId', 
+    {
+      path: currentJobId ? `/dashboard/test-management/${currentJobId}` : '/dashboard/test-management/:jobId',
       basePath: '/dashboard/test-management',
-      name: 'Test Management', 
-      icon: ClipboardDocumentListIcon 
+      name: 'Test Management',
+      icon: ClipboardDocumentListIcon
     },
     { path: '/dashboard/test-results', basePath: '/dashboard/test-results', name: 'Test Results', icon: ChartBarIcon },
+    { path: '/dashboard/admin-users', basePath: '/dashboard/admin-users', name: 'Admin Users', icon: UserGroupIcon },
   ];
 
   // Custom active link classes (works for dynamic jobId and query params)
   const linkClasses = (basePath, isActive, exact = false) => {
-    const match =  exact
+    const match = exact
       ? location.pathname === basePath
       : location.pathname.startsWith(basePath);
-    return `flex items-center py-3 px-4 rounded-lg transition-all duration-200 group ${
-      match || isActive
+    return `flex items-center py-3 px-4 rounded-lg transition-all duration-200 group ${match || isActive
         ? 'bg-blue-600 text-white shadow-lg'
         : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-    }`;
+      }`;
   };
 
   return (
